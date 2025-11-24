@@ -1,0 +1,7 @@
+---
+#базовые пакеты для всех хостов
+- name: configure base system for all hosts
+  hosts: all
+  gather_facts: yes
+  roles:
+    - base

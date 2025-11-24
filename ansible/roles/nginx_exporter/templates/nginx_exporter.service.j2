@@ -1,0 +1,21 @@
+[Unit]
+Description=Prometheus Nginx Log Exporter
+{# запуск после поднятия сети #}
+After=network.target
+
+[Service]
+{# простой тип -один процесс #}
+Type=simple
+{# пользователь, от кого запущен сервис и группа этого пользака #}
+User={{ nginx_exporter_user }}
+Group=www-data
+{# команда запуска экспортера с указанием файла конфигурации #}
+ExecStart=/usr/local/bin/nginx_exporter -config-file /etc/nginx_exporter.yml
+{# перезапуск при ошибках с задержной 5с #}
+Restart=on-failure
+RestartSec=5s
+
+
+[Install]
+ {# автозапуск при мультипользовательском режиме #}
+WantedBy=multi-user.target

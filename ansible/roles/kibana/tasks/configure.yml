@@ -1,0 +1,56 @@
+---
+#ожидание подъёма сервиса
+- name: wait kibana to be ready
+  uri:
+    url: "http://localhost:5601/api/status"
+    method: GET
+    status_code: 200
+  register: kibana_api
+  until: kibana_api.status == 200
+  retries: 30
+  delay: 10
+  tags: ['kibana', 'configure']
+
+
+
+# создание патернов для filebeat
+- name: create filebeat index pattern
+  uri:
+    url: "http://localhost:5601/api/saved_objects/index-pattern/filebeat-*"
+    method: POST
+    body_format: json
+    headers:
+      kbn-xsrf: "true"
+      Content-Type: "application/json"
+    body:
+      attributes:
+        title: "filebeat-*"
+        timeFieldName: "@timestamp"
+# 409 = already exists
+    status_code: [200, 409]
+  tags: ['kibana', 'configure']
+
+
+
+#создаём data под новый формат kibana v.9
+- name: сreate filebeat data view
+  uri:
+    url: "http://localhost:5601/api/data_views/data_view"
+    method: POST
+    body_format: json
+    headers:
+      kbn-xsrf: "true"
+      Content-Type: "application/json"
+    body:
+      data_view:
+        title: "filebeat-*"
+        name: "Filebeat Logs"
+        timeFieldName: "@timestamp"
+    status_code: [200, 409]
+  ignore_errors: yes
+  tags: ['kibana', 'configure']
+#вывод
+- name: output config-statu
+  debug:
+    msg: "Kibana configured successfully. Open http://localhost:5601 to view dashboards."
+  tags: ['kibana', 'configure']

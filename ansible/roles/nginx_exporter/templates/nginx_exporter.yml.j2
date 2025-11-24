@@ -1,0 +1,23 @@
+listen:
+  port: {{ nginx_exporter_port }}
+  address: 0.0.0.0
+
+
+{# описание пространства имён для логов nginx #}
+namespaces:
+{# пространство имён для access логов #}
+  - name: nginx_access
+{# формат логов - combined, т.е стандартный access log #}
+    format: combined
+    files:
+      - /var/log/nginx/access.log
+
+  - name: nginx_error
+    format: error
+    files:
+      - /var/log/nginx/error.log
+
+  - name: nginx_stub
+    format: stubstatus
+    files:
+      - /var/log/nginx/stub_status.log

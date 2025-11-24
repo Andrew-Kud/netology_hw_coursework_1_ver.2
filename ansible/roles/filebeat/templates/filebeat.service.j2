@@ -1,0 +1,29 @@
+[Unit]
+Description=Filebeat
+Documentation=https://www.elastic.co/guide/en/beats/filebeat/current/index.html
+
+{# запуск после сети и ожидание доступности сети #}
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+{# тип сервиса - однапоточный #}
+Type=simple
+
+User=root
+Group=root
+
+{# команда запуска filebeat с указанием конфигурационного фйла #}
+ExecStart=/opt/filebeat/filebeat -c /opt/filebeat/filebeat.yml
+
+{# рестарт при ошибках с задержкой 5 секунд #}
+Restart=on-failure
+RestartSec=5s
+
+{# вывод логов в journal-systemd #}
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+{# много пользовательский режим #}
+WantedBy=multi-user.target

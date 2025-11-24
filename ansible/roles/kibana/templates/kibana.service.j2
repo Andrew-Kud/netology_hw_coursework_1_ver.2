@@ -1,0 +1,31 @@
+{# описание systemd сервиса кибаны #}
+[Unit]
+Description=Kibana
+Documentation=https://www.elastic.co/guide/en/kibana/current/index.html
+{# ожидание сети и запуск после доступности сети #}
+Wants=network-online.target
+After=network-online.target
+
+
+
+[Service]
+{# тип сервиса простой - однопроцесный #}
+Type=simple
+User={{ kibana_user }}
+Group={{ kibana_group }}
+{# переменная для настройки max памяти #}
+Environment="NODE_OPTIONS=--max-old-space-size=2048"
+{# команда запуска кибаны #}
+ExecStart=/opt/kibana/bin/kibana
+{# рестарт при сбое с задержкой 5 сек #}
+Restart=on-failure
+RestartSec=5s
+{# логирование #}
+StandardOutput=journal
+StandardError=journal
+
+
+
+{# запуск сервиса при загрузке в многопользовательском режиме #}
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,36 @@
+---
+#web-d и web-b
+- name: configure web-servers
+  hosts: webservers_server
+  gather_facts: yes
+
+  tasks:
+    - name: apply base configuration
+      include_role:
+        name: base
+      tags: ['base']
+
+    - name: deploy webserver
+      include_role:
+        name: webserver
+      tags: ['webserver']
+
+    - name: install node-exporter
+      include_role:
+        name: node_exporter
+      tags: ['monitoring', 'node_exporter']
+
+    - name: install nginx-log-exporter
+      include_role:
+        name: nginx_exporter
+      tags: ['monitoring', 'nginx_exporter']
+
+    - name: install filebeat
+      include_role:
+        name: filebeat
+      tags: ['logging', 'filebeat']
+
+  vars:
+    nginx_port: 80
+    nginx_user: www-data
+    elasticsearch_host: "{{ hostvars[groups['elasticsearch_server'][0]]['ansible_host'] }}"

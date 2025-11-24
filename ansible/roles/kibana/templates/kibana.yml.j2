@@ -1,0 +1,21 @@
+{# порт, адерс и имя для кибаны для прослушивания #}
+server.port: {{ kibana_port }}
+server.host: "0.0.0.0"
+server.name: "kibana"
+
+
+{# список адресов для подключения #}
+elasticsearch.hosts:
+  - "http://{{ elasticsearch_host }}:9200"
+
+
+
+logging:
+  appenders:
+    file:
+      type: file
+      fileName: /var/log/kibana/kibana.log
+      layout:
+        type: json
+  root:
+    level: info

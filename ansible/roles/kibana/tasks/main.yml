@@ -1,0 +1,140 @@
+---
+#переменные
+- name: set variables
+  set_fact:
+    kibana_version: "9.2.1"
+    kibana_port: 5601
+    kibana_user: "kibana"
+    kibana_group: "kibana"
+    kibana_home: /opt/kibana
+  tags: ['kibana', 'vars']
+
+
+
+# копи архив киюаны
+- name: Copy kibana binary for local
+  copy:
+    src: kibana-9.2.1-linux-x86_64.tar.gz
+    dest: /tmp/kibana-9.2.1-linux-x86_64.tar.gz
+  tags: ['kibana', 'download']
+
+
+
+#создать юзера
+- name: create kibana user
+  user:
+    name: "{{ kibana_user }}"
+    system: yes
+    shell: /bin/false
+    create_home: no
+  become: yes
+  tags: ['kibana', 'user']
+
+
+
+#создать директорию
+- name: create kibana directory
+  file:
+    path: "{{ kibana_home }}"
+    owner: "{{ kibana_user }}"
+    group: "{{ kibana_group }}"
+    mode: '0755'
+    state: directory
+  become: yes
+  tags: ['kibana', 'dirs']
+
+
+
+#распаковка в целевую директорию локальных бинарь
+- name: extract kibana archive
+  unarchive:
+    src: /tmp/kibana-9.2.1-linux-x86_64.tar.gz
+    dest: "{{ kibana_home }}"
+    remote_src: yes
+    extra_opts: ['--strip-components=1']
+    owner: "{{ kibana_user }}"
+    group: "{{ kibana_group }}"
+  become: yes
+  tags: ['kibana', 'extract']
+
+
+
+#создать лог-директори.
+- name: cvreate logs directory
+  file:
+    path: /var/log/kibana
+    owner: "{{ kibana_user }}"
+    group: "{{ kibana_group }}"
+    mode: '0755'
+    state: directory
+  become: yes
+  tags: ['kibana', 'dirs']
+
+
+
+#создать кибана конфиг
+- name: create kibana config
+  template:
+    src: kibana.yml.j2
+    dest: "{{ kibana_home }}/config/kibana.yml"
+    owner: "{{ kibana_user }}"
+    group: "{{ kibana_group }}"
+    mode: '0660'
+  become: yes
+  notify: restart kibana
+  tags: ['kibana', 'config']
+
+
+
+#создать systemd сервис для кибаны
+- name: create kibana systemd-service
+  template:
+    src: kibana.service.j2
+    dest: /etc/systemd/system/kibana.service
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  notify: reload systemd
+  tags: ['kibana', 'service']
+# enable & start kibana
+- name: enable & start kibana-servic
+  systemd:
+    name: kibana
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  become: yes
+  tags: ['kibana', 'service']
+
+
+
+#жду подъёма кибана-сервиса
+- name: wait kibana to be ready
+  wait_for:
+    host: localhost
+    port: "{{ kibana_port }}"
+    delay: 10
+    timeout: 120
+  tags: ['kibana', 'verify']
+
+
+
+# чекаю статус
+- name: check kibana status
+  systemd:
+    name: kibana
+  register: kibana_status
+  tags: ['kibana', 'verify']
+#вывод
+- name: output status
+  debug:
+    msg: "Kibana state: {{ kibana_status.status.ActiveState }}"
+  tags: ['kibana', 'verify']
+
+
+
+#конфигурация индекс-патернов и дашборда
+- name: configure index-pattern and dashboards
+  include_tasks: configure.yml
+  tags: ['kibana', 'configure']

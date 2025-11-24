@@ -1,0 +1,40 @@
+[Unit]
+Description=Prometheus
+Documentation=https://prometheus.io/docs/
+Wants=network-online.target
+After=network-online.target
+
+
+[Service]
+Type=simple
+User={{ prometheus_user }}
+Group={{ prometheus_group }}
+{# команда запуска Prometheus с параметрами пути к конфиг-файлу, каталогу хранения данных и временем хранения 30д, пути к шаблонам веб-коноли и библиотекам, а так же разрешение изменений через веб интерфс. #}
+ExecStart=/usr/local/bin/prometheus \
+    --config.file={{ prometheus_config_dir }}/prometheus.yml \
+    --storage.tsdb.path={{ prometheus_data_dir }} \
+    --storage.tsdb.retention.time=30d \
+    --web.console.templates={{ prometheus_config_dir }}/consoles \
+    --web.console.libraries={{ prometheus_config_dir }}/console_libraries \
+    --web.enable-lifecycle
+
+
+ {# идентификатор логов в syslog #}
+SyslogIdentifier=prometheus
+ {# рестарт при любом завершении c задержной 5 сек #}
+Restart=always
+RestartSec=5s
+
+
+{# запрещает повышение привилегий у процесса #}
+NoNewPrivileges=true
+{# ограничивает доступ к домашним каталогам #}
+ProtectHome=yes
+{# строгая защита системных файлов #}
+ProtectSystem=strict
+ {# разрешение записи только в каталог данных Prometheus #}
+ReadWritePaths={{ prometheus_data_dir }}
+
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,19 @@
+{# версия конфигурационного файла провайдера #}
+apiVersion: 1
+
+{# список провайдеров дашбордов #}
+providers:
+  - name: 'Dashboards'
+{# id организации #}
+    orgId: 1
+{# директория для дашбордов #}
+    folder: ''
+{# загрузка из файлов #}
+    type: file
+{# удаление дашбордов при удалении файлов #}
+    disableDeletion: false
+{# разрешить редактирование дашбордов в web #}
+    editable: true
+{# путь к директории с файлами дашбордов #}
+    options:
+      path: /etc/grafana/provisioning/dashboards

@@ -1,0 +1,51 @@
+---
+#elasticserach
+- name: configure elasticsearch server
+  hosts: elasticsearch_server
+  gather_facts: yes
+
+  tasks:
+    - name: apply base configuration
+      include_role:
+        name: base
+      tags: ['base']
+
+    - name: install elasticsearch
+      include_role:
+        name: elasticsearch
+      tags: ['elasticsearch', 'logging']
+
+    - name: install node-exporter
+      include_role:
+        name: node_exporter
+      tags: ['monitoring', 'node_exporter']
+
+  vars:
+    elasticsearch_port: 9200
+
+
+
+#kibana
+- name: configure kibana server
+  hosts: kibana_server
+  gather_facts: yes
+
+  tasks:
+    - name: apply base configuration
+      include_role:
+        name: base
+      tags: ['base']
+
+    - name: install kibana
+      include_role:
+        name: kibana
+      tags: ['kibana', 'logging']
+
+    - name: install node-exporter
+      include_role:
+        name: node_exporter
+      tags: ['monitoring', 'node_exporter']
+
+  vars:
+    kibana_port: 5601
+    elasticsearch_host: "{{ hostvars[groups['elasticsearch_server'][0]]['ansible_host'] }}"

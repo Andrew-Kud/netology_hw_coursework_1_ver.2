@@ -1,0 +1,218 @@
+---
+#переменные
+- name: set variables
+  set_fact:
+    grafana_version: "12.3.0"
+    grafana_port: 3000
+    grafana_user: "grafana"
+    grafana_group: "grafana"
+    grafana_data_dir: /var/lib/grafana
+    grafana_config_dir: /etc/grafana
+    grafana_plugins_dir: /var/lib/grafana/plugins
+    grafana_keyring_path: /etc/apt/keyrings/grafana.gpg
+    grafana_repo_url: "https://mirror.yandex.ru/mirrors/packages.grafana.com/oss/deb"
+  tags: ['grafana', 'vars']
+
+
+
+#установка зависимостей
+- name: install prerequisite packages
+  apt:
+    name:
+      - apt-transport-https
+      - software-properties-common
+      - wget
+      - gnupg
+    state: present
+    update_cache: yes
+  become: yes
+  tags: ['grafana', 'deps']
+
+
+
+#создать директорю для keyring
+- name: create keyrings directory
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+  become: yes
+  tags: ['grafana', 'repos']
+
+
+
+#копировать локальный gpg ключ
+- name: copy localy grafana gpg key
+  copy:
+    src: grafana.gpg.key
+    dest: /tmp/grafana.gpg.key
+    mode: '0644'
+    owner: root
+    group: root
+  become: yes
+  tags: ['grafana', 'repos']
+
+
+
+#преобразовать ключ в бинарь
+- name: convert gpg key to binary format and install
+  shell: |
+    set -e
+    if [ ! -f /tmp/grafana.gpg.key ]; then
+      echo "Error: GPG key file not found at /tmp/grafana.gpg.key" >&2
+      exit 1
+    fi
+
+    gpg --dearmor < /tmp/grafana.gpg.key > {{ grafana_keyring_path }}
+
+    if [ ! -s {{ grafana_keyring_path }} ]; then
+      echo "Error: Failed to convert GPG key" >&2
+      exit 1
+    fi
+
+    chmod 644 {{ grafana_keyring_path }}
+    rm -f /tmp/grafana.gpg.key
+  become: yes
+  changed_when: true
+  tags: ['grafana', 'repos']
+
+
+
+#использую яндекс зеркало и сохраненый ключ
+- name: add grafana repository - yandex mirror
+  apt_repository:
+    repo: "deb [signed-by={{ grafana_keyring_path }}] {{ grafana_repo_url }} stable main"
+    state: present
+    filename: grafana
+  become: yes
+  tags: ['grafana', 'repos']
+
+
+
+#apt update
+- name: update apt cache
+  apt:
+    update_cache: yes
+  become: yes
+  tags: ['grafana', 'repos']
+
+
+
+#установка графаны
+- name: install grafana
+  apt:
+    name: grafana
+    state: present
+  become: yes
+  tags: ['grafana', 'packages']
+
+
+
+#создание директорий для provisioning
+- name: create provisioning directries
+  file:
+    path: "{{ item }}"
+    owner: "{{ grafana_user }}"
+    group: "{{ grafana_group }}"
+    mode: '0755'
+    state: directory
+  become: yes
+  loop:
+    - "{{ grafana_config_dir }}/provisioning/datasources"
+    - "{{ grafana_config_dir }}/provisioning/dashboards"
+  tags: ['grafana', 'dirs']
+
+
+
+#копи prometheus datasource конфиг из files
+- name: copy prometheus datasources configuration
+  template:
+    src: provisioning/datasources/prometheus.yml.j2
+    dest: "{{ grafana_config_dir }}/provisioning/datasources/prometheus.yml"
+    owner: "{{ grafana_user }}"
+    group: "{{ grafana_group }}"
+    mode: '0644'
+  become: yes
+  notify: restart grafana
+  tags: ['grafana', 'datasources']
+
+
+
+#дашборды
+- name: copy grafana dashboard
+  copy:
+    src: provisioning/dashboards/
+    dest: "{{ grafana_config_dir }}/provisioning/dashboards/"
+    owner: "{{ grafana_user }}"
+    group: "{{ grafana_group }}"
+    mode: '0644'
+  become: yes
+  notify: restart grafana
+  tags: ['grafana', 'dashboards']
+
+
+
+#конфиг для автозагрузки дашбордов
+- name: create grafana dashboard config
+  template:
+    src: dashboards_provisioning.yml.j2
+    dest: "{{ grafana_config_dir }}/provisioning/dashboards/dashboards.yml"
+    owner: "{{ grafana_user }}"
+    group: "{{ grafana_group }}"
+    mode: '0644'
+  become: yes
+  notify: restart grafana
+  tags: ['grafana', 'dashboards']
+
+
+
+#создлание конфига
+- name: create grafana config
+  template:
+    src: grafana.ini.j2
+    dest: "{{ grafana_config_dir }}/grafana.ini"
+    owner: "{{ grafana_user }}"
+    group: "{{ grafana_group }}"
+    mode: '0640'
+  become: yes
+  notify: restart grafana
+  tags: ['grafana', 'config']
+
+
+
+#start & enable
+- name: start and enable grafana-service
+  systemd:
+    name: grafana-server
+    state: started
+    enabled: yes
+  become: yes
+  tags: ['grafana', 'service']
+
+
+
+#Жду подъёма сервиса
+- name: wait to be ready grafana
+  wait_for:
+    host: localhost
+    port: "{{ grafana_port }}"
+    delay: 2
+    timeout: 30
+  tags: ['grafana', 'verify']
+
+
+
+#чекаю
+- name: check grafana api
+  uri:
+    url: "http://localhost:{{ grafana_port }}/api/health"
+    method: GET
+    status_code: 200
+  register: grafana_health
+  changed_when: false
+  tags: ['grafana', 'verify']
+#вывод
+- name: output status
+  debug:
+    msg: "Grafana is healthy: {{ grafana_health.json.database }}"
+  tags: ['grafana', 'debug']

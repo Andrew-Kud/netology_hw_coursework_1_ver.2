@@ -1,0 +1,149 @@
+---
+#переменные
+- name: set filebeat variables
+  set_fact:
+    filebeat_version: "9.2.1"
+    filebeat_user: "root"
+    filebeat_group: "root"
+    filebeat_home: /opt/filebeat
+  tags: ['filebeat', 'vars']
+
+
+
+# копировать локальный архив с бинарём
+- name: copy filebeat binary from local
+  copy:
+    src: filebeat-9.2.1-linux-x86_64.tar.gz
+    dest: /tmp/filebeat-9.2.1-linux-x86_64.tar.gz
+  tags: ['filebeat', 'download']
+
+
+
+#директория для файлбита
+- name: crate filebeat directory
+  file:
+    path: "{{ filebeat_home }}"
+    owner: "{{ filebeat_user }}"
+    group: "{{ filebeat_group }}"
+    mode: '0755'
+    state: directory
+  become: yes
+  tags: ['filebeat', 'dirs']
+
+
+
+#распакоука
+- name: extract filebeat archive
+  unarchive:
+    src: /tmp/filebeat-9.2.1-linux-x86_64.tar.gz
+    dest: "{{ filebeat_home }}"
+    remote_src: yes
+    extra_opts: ['--strip-components=1']
+  become: yes
+  tags: ['filebeat', 'extract']
+
+
+
+#директория для логов
+- name: create filebeat logs directory
+  file:
+    path: /var/log/filebeat
+    owner: "{{ filebeat_user }}"
+    group: "{{ filebeat_group }}"
+    mode: '0755'
+    state: directory
+  become: yes
+  tags: ['filebeat', 'dirs']
+
+
+
+#содать конфиг
+- name: create filebeat config
+  template:
+    src: filebeat.yml.j2
+    dest: "{{ filebeat_home }}/filebeat.yml"
+    owner: "{{ filebeat_user }}"
+    group: "{{ filebeat_group }}"
+    mode: '0600'
+  become: yes
+  notify: restart filebeat
+  tags: ['filebeat', 'config']
+
+
+
+#создать systemd сервис
+- name: create filebeat systemd-service
+  template:
+    src: filebeat.service.j2
+    dest: /etc/systemd/system/filebeat.service
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  notify: reload systemd
+  tags: ['filebeat', 'service']
+
+
+
+#стартую сервис
+- name: start and enable filebeat-service
+  systemd:
+    name: filebeat
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  become: yes
+  tags: ['filebeat', 'service']
+
+
+
+#чакаю доступность elastic
+- name: check elastic connectivity
+  shell: "curl -s -m 5 http://{{ elasticsearch_host }}:9200/ | head -c 100"
+  register: es_check
+  ignore_errors: yes
+  tags: ['filebeat', 'service']
+#вывод
+- name: output check-elastic-connect result
+  debug:
+    msg: "Elasticsearch check: {{ es_check.stdout }}"
+  tags: ['filebeat', 'service']
+
+
+
+#чекаю готовность файлбит
+- name: check filebeat-started
+  shell: "ps aux | grep -i filebeat | grep -v grep"
+  register: fb_process
+  ignore_errors: yes
+  tags: ['filebeat', 'service']
+#вывод
+- name: output filebeat status
+  debug:
+    msg: "Filebeat process: {{ fb_process.stdout }}"
+  tags: ['filebeat', 'service']
+
+
+
+#жду запуска, если ещё нет и проверяю доступность порта.
+- name: wait filebeat to be ready
+  shell: "curl -s http://{{ elasticsearch_host }}:9200/_cat/indices | head -1"
+  register: fb_ready
+  until: fb_ready.rc == 0
+  retries: 6
+  delay: 5
+  tags: ['filebeat', 'service']
+
+
+
+#чекаю итоговый статус
+- name: check filebeat status
+  systemd:
+    name: filebeat
+  register: filebeat_status
+  tags: ['filebeat', 'service']
+#вывод
+- name: output filebeat status
+  debug:
+    msg: "{{ filebeat_status.status }}"
+  tags: ['filebeat', 'service']

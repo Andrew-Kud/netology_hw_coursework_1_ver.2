@@ -1,0 +1,17 @@
+---
+- name: reload systemd
+  systemd:
+    daemon_reload: yes
+  become: yes
+
+- name: restart grafana
+  systemd:
+    name: grafana-server
+    state: restarted
+  become: yes
+
+- name: reload grafana
+  systemd:
+    name: grafana-server
+    state: reloaded
+  become: yes

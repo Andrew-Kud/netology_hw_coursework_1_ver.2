@@ -1,0 +1,23 @@
+{# версия конфигурации grafana datasource #}
+apiVersion: 1
+
+{# список источников данных #}
+datasources:
+{# имя тип #}
+  - name: Prometheus
+    type: prometheus
+{# url прометеуса с подстановкой из ansible invertory #}
+    url: "http://{{ hostvars[groups['prometheus_server'][0]]['ansible_host'] }}:9090"
+{# доступ через прокси графана #}
+    access: proxy
+{# этот источник данных будет по умолчанию #}
+    isDefault: true
+{# разрешить редактировать в web-grafana-ui #}
+    editable: true
+{# кажется это версия datasoutce config, но это не точно #}
+    version: 1
+{# мето http запросто к прометеусу, далее без кэша, далее интервал обновления #}
+    jsonData:
+      httpMethod: POST
+      cacheLevel: 'No cache'
+      timeInterval: 30s

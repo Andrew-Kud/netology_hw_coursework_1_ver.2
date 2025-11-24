@@ -1,0 +1,50 @@
+{# пути к рабочим директориям #}
+[paths]
+data = /var/lib/grafana
+logs = /var/log/grafana
+plugins = /var/lib/grafana/plugins
+
+
+{# дфолтные параметры сервера #}
+[server]
+http_port = {{ grafana_port }}
+http_addr = 0.0.0.0
+protocol = http
+root_url = http://localhost:{{ grafana_port }}/
+{# не использовать подкаталоги в url #}
+serve_from_sub_path = false
+
+
+{# параметры БД #}
+[database]
+type = sqlite3
+path = /var/lib/grafana/grafana.db
+
+
+{# секурность. логин-пароль меняются при первом запуске #}
+[security]
+admin_user = admin
+admin_password = admin
+{# не отключать смену пароля при первом запуске #}
+disable_initial_admin_password = false
+cookie_secure = false
+cookie_httponly = true
+
+
+{# деф.параметры пользователей #}
+[users]
+{# запретить самостоятельную регистрацию новых пользователей #}
+allow_sign_up = false
+
+
+{# аналитика и обновления #}
+[analytics]
+{# выключить сбор статистики #}
+reporting_enabled = false
+{# отключить проверку обновлений графаны #}
+check_for_updates = false
+
+
+{# отключить анонимный достп #}
+[auth.anonymous]
+enabled = false

@@ -1,0 +1,112 @@
+---
+#установка nginx
+- name: install nginx web-srv
+  apt:
+    name: nginx
+    state: present
+    update_cache: yes
+  become: yes
+  tags: ['webserver', 'packages']
+
+
+
+#скопировать статичные html из roles/webserver/files/html/
+- name: copy static website-files
+  copy:
+    src: html/
+    dest: /var/www/html/
+    owner: www-data
+    group: www-data
+    mode: '0755'
+  become: yes
+  notify: restart nginx
+  tags: ['webserver', 'content']
+
+
+
+#конфиг для stub_status
+- name: configure nginx stub_status
+  template:
+    src: nginx_default.j2
+    dest: /etc/nginx/sites-available/default
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+  tags: ['webserver', 'config']
+
+
+
+#рестарт nginx.
+- name: restart nginx for stub_status config
+  systemd:
+    name: nginx
+    state: restarted
+  become: yes
+  tags: ['webserver', 'config']
+
+
+
+#запустить nginx
+- name: start nginx is started
+  systemd:
+    name: nginx
+    state: started
+    enabled: yes
+  become: yes
+  tags: ['webserver', 'service']
+
+
+
+#проверка nginx
+- name: verify nginx status on port 80
+  wait_for:
+    host: localhost
+    port: 80
+    delay: 2
+    timeout: 30
+  tags: ['webserver', 'verify']
+
+
+
+#получить версию nginx для отладки
+- name: check nginx version
+  command: nginx -v
+  register: nginx_version
+  changed_when: false
+  tags: ['webserver', 'debug']
+
+
+
+#вывисти версию
+- name: output nginx version
+  debug:
+    msg: "Nginx version: {{ nginx_version.stderr }}"
+  tags: ['webserver', 'debug']
+
+
+
+#проверка stub_status
+- name: verify stub_status is available
+  uri:
+    url: "http://localhost/stub_status"
+    method: GET
+    return_content: yes
+  register: stub_status_check
+  changed_when: false
+  tags: ['webserver', 'verify']
+
+
+
+#вывод sutb
+- name: output stub_status
+  debug:
+    msg: "Stub Status:\n{{ stub_status_check.content }}"
+  when: stub_status_check.status == 200
+  tags: ['webserver', 'debug']
+
+- name: output stub_status errors
+  debug:
+    msg: "Stub Status Failed: {{ stub_status_check.status }} - {{ stub_status_check.msg }}"
+  when: stub_status_check.status != 200
+  tags: ['webserver', 'debug']
